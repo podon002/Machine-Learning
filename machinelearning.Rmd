@@ -1,0 +1,77 @@
+#Predicting Human Activity Recognition Outcome with Machine Learning
+##Machine Learning Course Project
+###By Philip O'Donnell
+
+##Introduction
+"Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways."
+
+Given the above information, the purpose of this report will be to use the data collected from the above mentioned study in order to accurately predict the movement of 20 unidentified samples.
+
+##Data
+The date for this project comes from the Groupware@LES Human Activity Recognition project.  Specifically, the Weight Lifting Exercises Data-set is use in order to train a prediction model that will be used to predict the exercise of being done of 20 observation.  "participants were asked to perform one set of 10 repetitions of the Unilateral Dumbbell Biceps Curl in five different fashions: exactly according to the specification (Class A), throwing the elbows to the front (Class B), lifting the dumbbell only halfway (Class C), lowering the dumbbell only halfway (Class D) and throwing the hips to the front (Class E)".
+
+Read more about the data at the below link:
+http://groupware.les.inf.puc-rio.br/har#ixzz3YLYbcNro
+
+##Method
+First, the require packages are loaded into R Studio.  The required packages are caret, ggplot2 and randomForest.  Next, the data is loaded into R.  There are a lot of columns with NAs in the data set and they are removed since they offer no predictive value.  Also, the first seven (7) columns are removed since they are just identifiers and also do not offer any predictive value either.
+
+```{r, echo=FALSE}
+##Load packages
+library(caret)
+library(randomForest)
+library(ggplot2)
+
+##Load data
+set.seed(1234)
+origtraindat <- read.csv("./pml-training.csv", na.strings= c("NA",""," "))
+finaltesting <- read.csv("./pml-testing.csv", na.strings= c("NA",""," "))
+
+##Remove columns with at least 50% non-NA's & first 7 columns
+cleantrain <- origtraindat[ , colSums(is.na(origtraindat)) == 0]
+cleantrain <- cleantrain[,-c(1:7)]
+```
+
+After the data has been loaded and trimmed, the original training data set is partitioned using the caret package into training and testing set for model building and cross-validation.  The data set is sufficiently large enough to use data slicing as cross-validation, as opposed to other methods (k-fold, etc..) used for small data sets.
+
+```{r}
+##Partition data
+inTrain <- createDataPartition(y=cleantrain$classe, p=0.75, list=FALSE)
+training <- cleantrain[inTrain,]
+testing <- cleantrain[-inTrain,]
+```
+
+Once the data is partition, a random forest is selected for the model, since it and boosting are the most popular methods for prediction competitions.
+
+```{r}
+modFitRF <- randomForest(classe ~ .,data=training, importance=FALSE)
+print(modFitRF)
+```
+
+The outcome of the random forest shows that the OOB estimate of error rate is only 0.44% (the OOB is similar to the estimate out-of-sample error).  This is sufficiently low to be comfortable with the accuracy of the model and its use moving forward.  Next, the model will be tested to see how well it predicts the exercise performed from the testing set partitioned from the original training data.  Due to the low OOB error rate, the error rate for the cross-validation is expected to be low.
+
+##Results
+```{r}
+predictRF <- predict(modFitRF,newdata=testing)
+cmRF <- confusionMatrix(predictRF, testing$classe)
+print(cmRF)
+testing$predRight <- predictRF==testing$classe
+qplot(classe, colour=predRight,data=testing, facets= predRight ~ .,
+      main="True vs. False Predictions")
+```
+
+As expected, the accuracy of the model, as shown by the confusion matrix, is extremely high (greater than 99%), so the error rate is less than 1%, as expected from the cross-validation.  The graphs also demonstrates how well the model was in predicting the exercise performed.  A decision tree model was also run during testing, but only had an accuracy of 66%, indicating further that the random forest model was a superior model.
+
+To predict the exercise performed of the 20 observations, that data is cleaned the same way as the training data.  The cleaned test data is then put into the prediction function with the random forest model.  The predictions are expected to be accurate since the model accuracy is very high.
+
+```{r}
+cleanfinal <- finaltesting[ , colSums(is.na(finaltesting)) == 0]
+cleanfinal <- cleanfinal[,-c(1:7)]
+predictTest <- predict(modFitRF,newdata=cleanfinal)
+print(predictTest)
+```
+
+##Conclusion
+Based on the above model, we can demonstrate accurate prediction of out-of-sample data with the help of machine learning algorithms and cross-validation.
+All of the possible models were not used here (random forest model was detailed and the decision tree outcomes were omitted to ensure brevity).  However the chosen model (random forest) worked extremely well.  The expected out of sample error was low and the estimated error was appropriately low with cross-validation.
+
